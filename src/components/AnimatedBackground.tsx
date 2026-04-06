@@ -11,23 +11,27 @@ const AnimatedBackground = () => {
     if (!ctx) return;
 
     let animId: number;
-    const nodes: { x: number; y: number; vx: number; vy: number; radius: number }[] = [];
-    const nodeCount = 60;
+    const nodes: { x: number; y: number; vx: number; vy: number; radius: number; brightness: number }[] = [];
+    const nodeCount = 80;
 
     const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      canvas.width = window.innerWidth * window.devicePixelRatio;
+      canvas.height = window.innerHeight * window.devicePixelRatio;
+      canvas.style.width = window.innerWidth + "px";
+      canvas.style.height = window.innerHeight + "px";
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
     };
     resize();
     window.addEventListener("resize", resize);
 
     for (let i = 0; i < nodeCount; i++) {
       nodes.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.4,
-        vy: (Math.random() - 0.5) * 0.4,
-        radius: Math.random() * 2 + 1,
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        radius: Math.random() * 1.8 + 0.6,
+        brightness: Math.random() * 0.5 + 0.3,
       });
     }
 
@@ -36,64 +40,75 @@ const AnimatedBackground = () => {
     };
     window.addEventListener("mousemove", handleMouse);
 
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let time = 0;
 
-      // Draw grid
-      ctx.strokeStyle = "rgba(139, 92, 246, 0.03)";
-      ctx.lineWidth = 1;
-      const gridSize = 60;
-      for (let x = 0; x < canvas.width; x += gridSize) {
+    const draw = () => {
+      time += 0.005;
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+      // Subtle grid
+      ctx.strokeStyle = "rgba(139, 92, 246, 0.015)";
+      ctx.lineWidth = 0.5;
+      const gridSize = 50;
+      for (let x = 0; x < window.innerWidth; x += gridSize) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
+        ctx.lineTo(x, window.innerHeight);
         ctx.stroke();
       }
-      for (let y = 0; y < canvas.height; y += gridSize) {
+      for (let y = 0; y < window.innerHeight; y += gridSize) {
         ctx.beginPath();
         ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
+        ctx.lineTo(window.innerWidth, y);
         ctx.stroke();
       }
 
-      // Update and draw nodes
+      // Nodes
       nodes.forEach((node, i) => {
         node.x += node.vx;
         node.y += node.vy;
-        if (node.x < 0 || node.x > canvas.width) node.vx *= -1;
-        if (node.y < 0 || node.y > canvas.height) node.vy *= -1;
 
-        // Mouse influence
+        if (node.x < -20) node.x = window.innerWidth + 20;
+        if (node.x > window.innerWidth + 20) node.x = -20;
+        if (node.y < -20) node.y = window.innerHeight + 20;
+        if (node.y > window.innerHeight + 20) node.y = -20;
+
+        // Mouse repulsion
         const dx = mouseRef.current.x - node.x;
         const dy = mouseRef.current.y - node.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 200) {
-          node.x -= dx * 0.002;
-          node.y -= dy * 0.002;
+        if (dist < 180) {
+          const force = (180 - dist) / 180;
+          node.x -= dx * force * 0.008;
+          node.y -= dy * force * 0.008;
         }
 
-        // Draw node
-        const gradient = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, node.radius * 3);
-        gradient.addColorStop(0, "rgba(139, 92, 246, 0.6)");
-        gradient.addColorStop(1, "rgba(139, 92, 246, 0)");
-        ctx.fillStyle = gradient;
+        // Pulsing brightness
+        const pulse = Math.sin(time * 2 + i) * 0.15 + node.brightness;
+
+        // Glow
+        const glow = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, node.radius * 4);
+        glow.addColorStop(0, `rgba(139, 92, 246, ${pulse * 0.5})`);
+        glow.addColorStop(1, "rgba(139, 92, 246, 0)");
+        ctx.fillStyle = glow;
         ctx.beginPath();
-        ctx.arc(node.x, node.y, node.radius * 3, 0, Math.PI * 2);
+        ctx.arc(node.x, node.y, node.radius * 4, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = "rgba(139, 92, 246, 0.8)";
+        // Core
+        ctx.fillStyle = `rgba(160, 120, 255, ${pulse})`;
         ctx.beginPath();
         ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
         ctx.fill();
 
-        // Draw connections
+        // Connections
         for (let j = i + 1; j < nodes.length; j++) {
           const other = nodes[j];
           const d = Math.sqrt((node.x - other.x) ** 2 + (node.y - other.y) ** 2);
-          if (d < 150) {
-            const alpha = (1 - d / 150) * 0.15;
+          if (d < 130) {
+            const alpha = (1 - d / 130) * 0.08;
             ctx.strokeStyle = `rgba(139, 92, 246, ${alpha})`;
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 0.8;
             ctx.beginPath();
             ctx.moveTo(node.x, node.y);
             ctx.lineTo(other.x, other.y);
@@ -103,15 +118,16 @@ const AnimatedBackground = () => {
       });
 
       // Mouse glow
-      const mg = ctx.createRadialGradient(
-        mouseRef.current.x, mouseRef.current.y, 0,
-        mouseRef.current.x, mouseRef.current.y, 300
-      );
-      mg.addColorStop(0, "rgba(139, 92, 246, 0.06)");
-      mg.addColorStop(0.5, "rgba(59, 130, 246, 0.03)");
-      mg.addColorStop(1, "rgba(0, 0, 0, 0)");
-      ctx.fillStyle = mg;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const mx = mouseRef.current.x;
+      const my = mouseRef.current.y;
+      if (mx > 0 && my > 0) {
+        const mg = ctx.createRadialGradient(mx, my, 0, mx, my, 250);
+        mg.addColorStop(0, "rgba(139, 92, 246, 0.04)");
+        mg.addColorStop(0.5, "rgba(59, 130, 246, 0.02)");
+        mg.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = mg;
+        ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+      }
 
       animId = requestAnimationFrame(draw);
     };

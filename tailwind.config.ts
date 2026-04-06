@@ -15,6 +15,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
+        display: ["Space Grotesk", "Inter", "system-ui", "sans-serif"],
         mono: ["JetBrains Mono", "monospace"],
       },
       colors: {
@@ -60,6 +61,7 @@ export default {
           purple: "hsl(var(--glow-purple))",
           blue: "hsl(var(--glow-blue))",
           cyan: "hsl(var(--glow-cyan))",
+          orange: "hsl(var(--glow-orange))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
