@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { GRAPH_EDGES } from "@/lib/routeGraph";
+import LiveRouteMap from "@/components/LiveRouteMap";
 
 interface Node {
   id: string;
@@ -14,6 +16,12 @@ interface Edge {
   weight: number;
 }
 
+const uniqueEdges: Edge[] = GRAPH_EDGES.map((e) => ({
+  from: e.from,
+  to: e.to,
+  weight: e.weight,
+}));
+
 const defaultNodes: Node[] = [
   { id: "del", x: 340, y: 55, label: "Delhi" },
   { id: "jai", x: 240, y: 100, label: "Jaipur" },
@@ -27,44 +35,18 @@ const defaultNodes: Node[] = [
   { id: "lko", x: 420, y: 85, label: "Lucknow" },
   { id: "pat", x: 490, y: 90, label: "Patna" },
   { id: "pun", x: 230, y: 230, label: "Pune" },
+  { id: "nag", x: 350, y: 210, label: "Nagpur" },
 ];
-
-const defaultEdges: Edge[] = [
-  { from: "del", to: "jai", weight: 280 },
-  { from: "del", to: "lko", weight: 555 },
-  { from: "jai", to: "ahm", weight: 660 },
-  { from: "ahm", to: "mum", weight: 530 },
-  { from: "mum", to: "pun", weight: 150 },
-  { from: "mum", to: "goa", weight: 590 },
-  { from: "pun", to: "hyd", weight: 560 },
-  { from: "goa", to: "blr", weight: 560 },
-  { from: "blr", to: "chn", weight: 350 },
-  { from: "hyd", to: "blr", weight: 570 },
-  { from: "hyd", to: "chn", weight: 630 },
-  { from: "lko", to: "pat", weight: 535 },
-  { from: "pat", to: "kol", weight: 590 },
-  { from: "del", to: "lko", weight: 555 },
-  { from: "lko", to: "kol", weight: 985 },
-  { from: "hyd", to: "kol", weight: 1490 },
-  { from: "del", to: "mum", weight: 1400 },
-  { from: "jai", to: "del", weight: 280 },
-  { from: "pun", to: "blr", weight: 840 },
-];
-
-// Remove duplicate edges
-const uniqueEdges = defaultEdges.filter((edge, i, arr) =>
-  arr.findIndex(e =>
-    (e.from === edge.from && e.to === edge.to) ||
-    (e.from === edge.to && e.to === edge.from)
-  ) === i
-);
 
 interface Props {
   routePath?: string[];
   isAnimating: boolean;
+  /** Real OSRM route — when set, shows Leaflet map */
+  livePolyline?: [number, number][];
+  liveWaypoints?: { position: [number, number]; label: string }[];
 }
 
-const MapVisualization = ({ routePath, isAnimating }: Props) => {
+const MapVisualization = ({ routePath, isAnimating, livePolyline, liveWaypoints }: Props) => {
   const [pathProgress, setPathProgress] = useState(0);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
@@ -90,13 +72,20 @@ const MapVisualization = ({ routePath, isAnimating }: Props) => {
     : [];
 
   return (
-    <div className="glass-panel p-6 h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">India Route Network</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Interactive graph visualization</p>
+    <div className="glass-panel flex h-full flex-col rounded-2xl p-6 sm:p-7 ring-1 ring-white/[0.06]">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/75 mb-1">Map</p>
+          <h2 className="text-xl font-bold font-display tracking-tight text-foreground">
+            {livePolyline && livePolyline.length > 0 ? "Live route" : "Hub network"}
+          </h2>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            {livePolyline && livePolyline.length > 0
+              ? "Real driving geometry (OSRM) · Tiles © OpenStreetMap contributors"
+              : "Teaching graph — major Indian city hubs & highway-style edges"}
+          </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex shrink-0 items-center gap-4 sm:pt-1">
           <div className="flex items-center gap-1.5">
             <div className="w-6 h-0.5 rounded-full bg-glow-purple opacity-40" style={{ borderTop: "1.5px dashed hsl(265 90% 65%)" }} />
             <span className="text-xs text-muted-foreground">Connections</span>
@@ -108,10 +97,27 @@ const MapVisualization = ({ routePath, isAnimating }: Props) => {
         </div>
       </div>
 
-      <div className="flex-1 relative rounded-xl overflow-hidden border border-glass-border"
-        style={{ background: "linear-gradient(145deg, hsl(230 25% 7%), hsl(230 30% 5%))" }}>
+      <div
+        className="relative min-h-[360px] flex-1 overflow-hidden rounded-xl border border-glass-border/90 shadow-[inset_0_1px_0_0_hsl(0_0%_100%/0.05)]"
+        style={{ background: "linear-gradient(155deg, hsl(232 28% 8%), hsl(230 30% 5%))" }}
+      >
+        {livePolyline && livePolyline.length > 0 ? (
+          <div className="absolute inset-0 z-[5]">
+            <LiveRouteMap polyline={livePolyline} waypoints={liveWaypoints} />
+          </div>
+        ) : null}
+
+        {!livePolyline?.length && !routePath?.length && !isAnimating ? (
+          <div className="absolute inset-0 z-[1] flex items-center justify-center pointer-events-none">
+            <p className="text-sm text-muted-foreground/70 text-center px-6 max-w-sm leading-relaxed">
+              Choose source and destination, then <span className="text-foreground/90 font-medium">Find Optimal Route</span> to see the hub
+              graph or a live map when OSM routing is available.
+            </p>
+          </div>
+        ) : null}
+
         {/* Subtle grid */}
-        <svg className="absolute inset-0 w-full h-full opacity-[0.06]">
+        <svg className={`absolute inset-0 w-full h-full opacity-[0.06] ${livePolyline?.length ? "hidden" : ""}`}>
           <defs>
             <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
               <path d="M 30 0 L 0 0 0 30" fill="none" stroke="hsl(265 90% 65%)" strokeWidth="0.3" />
@@ -120,7 +126,11 @@ const MapVisualization = ({ routePath, isAnimating }: Props) => {
           <rect width="100%" height="100%" fill="url(#grid)" />
         </svg>
 
-        <svg viewBox="0 0 700 420" className="w-full h-full relative z-10" style={{ padding: "10px" }}>
+        <svg
+          viewBox="0 0 700 420"
+          className={`w-full h-full relative z-10 ${livePolyline?.length ? "hidden" : ""}`}
+          style={{ padding: "10px" }}
+        >
           <defs>
             <linearGradient id="routeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="hsl(265, 90%, 65%)" />

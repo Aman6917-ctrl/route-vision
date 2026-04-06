@@ -117,13 +117,14 @@ const AnimatedBackground = () => {
         }
       });
 
-      // Mouse glow
+      // Mouse glow — purple + cyan premium wash
       const mx = mouseRef.current.x;
       const my = mouseRef.current.y;
       if (mx > 0 && my > 0) {
-        const mg = ctx.createRadialGradient(mx, my, 0, mx, my, 250);
-        mg.addColorStop(0, "rgba(139, 92, 246, 0.04)");
-        mg.addColorStop(0.5, "rgba(59, 130, 246, 0.02)");
+        const mg = ctx.createRadialGradient(mx, my, 0, mx, my, 280);
+        mg.addColorStop(0, "rgba(139, 92, 246, 0.055)");
+        mg.addColorStop(0.35, "rgba(56, 189, 248, 0.03)");
+        mg.addColorStop(0.65, "rgba(59, 130, 246, 0.02)");
         mg.addColorStop(1, "rgba(0, 0, 0, 0)");
         ctx.fillStyle = mg;
         ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);

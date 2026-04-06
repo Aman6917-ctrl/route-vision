@@ -2,12 +2,13 @@ import { motion } from "framer-motion";
 import { Heart } from "lucide-react";
 
 const Footer = () => (
-  <footer className="relative mt-16 border-t border-glass-border/50">
-    {/* Top gradient line */}
-    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2/3 h-px"
-      style={{ background: "linear-gradient(90deg, transparent, hsl(265 90% 65% / 0.4), hsl(200 95% 55% / 0.4), transparent)" }} />
+  <footer className="relative mt-20 border-t border-glass-border/40">
+    <div
+      className="absolute top-0 left-1/2 h-px w-3/4 max-w-2xl -translate-x-1/2 premium-divider"
+      aria-hidden
+    />
 
-    <div className="max-w-6xl mx-auto px-6 py-10">
+    <div className="mx-auto max-w-6xl px-6 py-12">
       <div className="flex flex-col md:flex-row items-center justify-between gap-6">
         <motion.div
           initial={{ opacity: 0 }}
@@ -16,7 +17,9 @@ const Footer = () => (
           viewport={{ once: true }}
         >
           <h3 className="text-base font-bold glow-text tracking-tight">Smart Route Planner</h3>
-          <p className="text-xs text-muted-foreground mt-1">🇮🇳 Built for Indian cities • Advanced pathfinding</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+            India-wide search • OpenStreetMap routing • Hub-network algorithm lab
+          </p>
         </motion.div>
 
         <motion.div
@@ -26,8 +29,11 @@ const Footer = () => (
           transition={{ duration: 0.6, delay: 0.1 }}
           viewport={{ once: true }}
         >
-          {["React", "TypeScript", "Tailwind CSS", "Framer Motion"].map((tech) => (
-            <span key={tech} className="px-3 py-1.5 text-[10px] font-semibold rounded-full bg-secondary/50 text-muted-foreground border border-glass-border uppercase tracking-wider">
+          {["React", "TypeScript", "Vite", "Leaflet", "Tailwind"].map((tech) => (
+            <span
+              key={tech}
+              className="rounded-full border border-glass-border/80 bg-secondary/40 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shadow-inner"
+            >
               {tech}
             </span>
           ))}

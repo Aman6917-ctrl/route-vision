@@ -21,8 +21,8 @@ const features = [
   },
   {
     icon: Route,
-    title: "Real-Time Visualization",
-    desc: "Watch routes animate across an interactive Indian city network graph",
+    title: "Live map + graph",
+    desc: "OpenStreetMap driving routes for any place in India, plus an animated hub network for teaching",
     gradient: "from-glow-blue/20 to-glow-cyan/5",
   },
   {
@@ -58,28 +58,28 @@ const HeroSection = ({ onStart }: HeroSectionProps) => {
             transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
             className="mb-8"
           >
-            <div className="inline-flex items-center gap-2.5 glass-panel px-5 py-2.5 cursor-default">
-              <div className="relative">
-                <div className="w-2 h-2 rounded-full bg-glow-cyan" />
-                <div className="absolute inset-0 w-2 h-2 rounded-full bg-glow-cyan animate-ping opacity-60" />
+            <div className="inline-flex items-center gap-3 rounded-full border border-glow-purple/25 bg-gradient-to-r from-glow-purple/[0.12] via-secondary/40 to-glow-cyan/[0.08] px-6 py-2.5 shadow-[0_8px_32px_-8px_hsl(267_90%_50%/0.35)] backdrop-blur-md cursor-default">
+              <div className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-glow-cyan opacity-40" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-gradient-to-br from-glow-cyan to-glow-blue shadow-[0_0_12px_hsl(187_96%_58%/0.8)]" />
               </div>
-              <span className="text-sm font-medium text-muted-foreground tracking-wide">
-                🇮🇳 Optimized for Indian Routes
+              <span className="text-sm font-semibold tracking-wide text-foreground/90">
+                India-wide routing · OSM live map
               </span>
             </div>
           </motion.div>
 
           {/* Title */}
           <motion.h1
-            className="font-display text-[3.2rem] sm:text-7xl lg:text-[5.8rem] font-extrabold tracking-[-0.04em] leading-[0.9] mb-6"
+            className="font-display text-[3.2rem] sm:text-7xl lg:text-[5.8rem] font-extrabold tracking-[-0.045em] leading-[0.88] mb-6 drop-shadow-[0_4px_48px_hsl(267_90%_50%/0.15)]"
             initial={{ opacity: 0, y: 50, filter: "blur(12px)" }}
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             transition={{ duration: 0.9, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
           >
-            <span className="text-foreground">Smart </span>
+            <span className="text-foreground/95">Smart </span>
             <span className="glow-text">Route</span>
             <br className="sm:hidden" />
-            <span className="text-foreground"> Planner</span>
+            <span className="text-foreground/95"> Planner</span>
           </motion.h1>
 
           {/* Subtitle */}
@@ -89,7 +89,7 @@ const HeroSection = ({ onStart }: HeroSectionProps) => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
           >
-            Find the fastest paths between Indian cities using Bellman-Ford, Floyd-Warshall, Greedy & TSP algorithms.
+            Search cities and towns across India, get real road distances on a live map, and compare classic shortest-path algorithms side by side.
           </motion.p>
 
           {/* CTA */}
@@ -100,8 +100,9 @@ const HeroSection = ({ onStart }: HeroSectionProps) => {
             transition={{ duration: 0.7, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
           >
             <button
+              type="button"
               onClick={onStart}
-              className="btn-glow inline-flex items-center gap-3 px-10 py-4 rounded-2xl text-primary-foreground font-semibold text-lg group"
+              className="btn-glow inline-flex items-center gap-3 px-10 py-4 rounded-2xl text-primary-foreground font-semibold text-lg group shadow-2xl"
             >
               <span className="relative z-10 flex items-center gap-3">
                 Start Planning
@@ -120,7 +121,7 @@ const HeroSection = ({ onStart }: HeroSectionProps) => {
             {floatingCards.map((card, i) => (
               <motion.div
                 key={i}
-                className="glass-panel-hover px-3 py-3 flex items-center gap-2.5"
+                className="glass-panel-hover px-3 py-3 flex items-center gap-2.5 rounded-xl ring-1 ring-white/[0.04] shadow-lg shadow-black/30"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.6 + i * 0.1, ease: [0.22, 1, 0.36, 1] }}
@@ -146,13 +147,15 @@ const HeroSection = ({ onStart }: HeroSectionProps) => {
             transition={{ duration: 0.6, delay: 0.9 }}
           >
             {[
-              { value: "12", label: "Indian Cities" },
+              { value: "India-wide", label: "Place search" },
               { value: "4", label: "Algorithms" },
-              { value: "Real-time", label: "Visualization" },
-            ].map((stat, i) => (
-              <div key={stat.label} className="text-center">
-                <div className="text-xl sm:text-2xl font-bold text-foreground font-display">{stat.value}</div>
-                <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 uppercase tracking-wider font-medium">{stat.label}</div>
+              { value: "OSM", label: "Live routing" },
+            ].map((stat) => (
+              <div key={stat.label} className="text-center px-2">
+                <div className="text-xl sm:text-2xl font-bold font-display text-gradient">{stat.value}</div>
+                <div className="text-[10px] sm:text-[11px] text-muted-foreground mt-1 uppercase tracking-[0.15em] font-semibold">
+                  {stat.label}
+                </div>
               </div>
             ))}
           </motion.div>

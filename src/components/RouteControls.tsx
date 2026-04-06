@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import { MapPin, Navigation, Plus, Trash2, ChevronDown, Loader2, Zap, Search } from "lucide-react";
 
-export interface RouteConfig {
-  source: string;
-  destination: string;
-  stops: string[];
-  algorithm: string;
-}
+import type { RouteConfig } from "@/lib/routeTypes";
+import { INDIA_QUICK_PICKS } from "@/lib/indiaPlaceSearch";
+import { useIndiaPlaceSearch } from "@/hooks/useIndiaPlaceSearch";
+
+export type { RouteConfig };
 
 interface Props {
   onFindRoute: (config: RouteConfig) => void;
@@ -15,13 +15,17 @@ interface Props {
 }
 
 const algorithms = [
-  { id: "bellman-ford", name: "Bellman-Ford", tag: "Dynamic Programming", color: "text-glow-purple" },
+  { id: "bellman-ford", name: "Bellman-Ford", tag: "Edge relaxation", color: "text-glow-purple" },
   { id: "all-pairs", name: "All-Pairs Shortest Path", tag: "Floyd-Warshall", color: "text-glow-blue" },
-  { id: "greedy", name: "Activity Selection", tag: "Greedy", color: "text-glow-cyan" },
-  { id: "tsp", name: "Traveling Salesman", tag: "NP Approximation", color: "text-destructive" },
+  { id: "greedy", name: "Greedy shortest path", tag: "Dijkstra", color: "text-glow-cyan" },
+  { id: "tsp", name: "Traveling Salesman", tag: "Nearest neighbor", color: "text-destructive" },
 ];
 
-const indianCities = ["Delhi", "Mumbai", "Bangalore", "Chennai", "Kolkata", "Hyderabad", "Pune", "Ahmedabad", "Jaipur", "Lucknow", "Patna", "Goa"];
+type FocusField =
+  | { kind: "source" }
+  | { kind: "dest" }
+  | { kind: "stop"; index: number }
+  | null;
 
 const RouteControls = ({ onFindRoute, isLoading }: Props) => {
   const [source, setSource] = useState("Delhi");
@@ -29,10 +33,21 @@ const RouteControls = ({ onFindRoute, isLoading }: Props) => {
   const [stops, setStops] = useState<string[]>([]);
   const [algorithm, setAlgorithm] = useState(algorithms[0].id);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [sourceSuggestions, setSourceSuggestions] = useState(false);
-  const [destSuggestions, setDestSuggestions] = useState(false);
+  const [focusField, setFocusField] = useState<FocusField>(null);
 
   const selectedAlgo = algorithms.find((a) => a.id === algorithm)!;
+
+  const activeQuery =
+    focusField?.kind === "source"
+      ? source
+      : focusField?.kind === "dest"
+        ? destination
+        : focusField?.kind === "stop"
+          ? stops[focusField.index] ?? ""
+          : "";
+
+  const searchEnabled = focusField !== null;
+  const { results: searchResults, loading: searchLoading } = useIndiaPlaceSearch(activeQuery, searchEnabled);
 
   const addStop = () => setStops([...stops, ""]);
   const removeStop = (i: number) => setStops(stops.filter((_, idx) => idx !== i));
@@ -43,62 +58,139 @@ const RouteControls = ({ onFindRoute, isLoading }: Props) => {
   };
 
   const handleSubmit = () => {
-    onFindRoute({ source, destination, stops, algorithm });
+    const src = source.trim();
+    const dst = destination.trim();
+    const cleanStops = stops.map((s) => s.trim()).filter(Boolean);
+    if (!src || !dst) {
+      toast.error("Please enter source and destination.");
+      return;
+    }
+    if (src.toLowerCase() === dst.toLowerCase() && cleanStops.length === 0) {
+      toast.error("Source and destination must be different.");
+      return;
+    }
+    onFindRoute({ source: src, destination: dst, stops: cleanStops, algorithm });
   };
 
-  const filterCities = (query: string) =>
-    indianCities.filter(c => c.toLowerCase().includes(query.toLowerCase()));
+  const blurClose = () => {
+    setTimeout(() => setFocusField(null), 180);
+  };
 
-  const CitySuggestions = ({ query, onSelect, show }: { query: string; onSelect: (city: string) => void; show: boolean }) => {
-    if (!show) return null;
-    const filtered = filterCities(query);
-    if (filtered.length === 0) return null;
+  const filterQuickPicks = (q: string) => {
+    const s = q.trim().toLowerCase();
+    if (!s) return [...INDIA_QUICK_PICKS];
+    return INDIA_QUICK_PICKS.filter((p) => p.toLowerCase().includes(s));
+  };
+
+  function matchesSuggestionTarget(
+    kind: "source" | "dest" | "stop",
+    stopIndex?: number
+  ): boolean {
+    if (!focusField) return false;
+    if (focusField.kind !== kind) return false;
+    if (kind === "stop") {
+      return focusField.kind === "stop" && focusField.index === stopIndex;
+    }
+    return true;
+  }
+
+  function PlaceSuggestions({
+    kind,
+    stopIndex,
+    value,
+    onSelect,
+  }: {
+    kind: "source" | "dest" | "stop";
+    stopIndex?: number;
+    value: string;
+    onSelect: (label: string) => void;
+  }) {
+    if (!matchesSuggestionTarget(kind, stopIndex)) return null;
+
+    const q = value.trim();
+    const useApi = q.length >= 2;
+
     return (
       <motion.div
         initial={{ opacity: 0, y: -4 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -4 }}
-        className="absolute z-50 w-full mt-1 glass-panel p-1 max-h-36 overflow-y-auto"
+        className="absolute z-[100] w-full mt-1 glass-panel max-h-64 overflow-y-auto shadow-lg border border-glass-border"
       >
-        {filtered.map(city => (
-          <button
-            key={city}
-            onMouseDown={(e) => { e.preventDefault(); onSelect(city); }}
-            className="w-full text-left px-3 py-2 text-sm rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-          >
-            {city}
-          </button>
-        ))}
+        {!useApi ? (
+          <>
+            <p className="text-[10px] text-muted-foreground px-3 pt-2 pb-1 border-b border-glass-border/60">
+              Popular places — type 2+ letters to search any city, town, or state in India
+            </p>
+            {filterQuickPicks(q).map((label) => (
+              <button
+                key={label}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onSelect(label);
+                  setFocusField(null);
+                }}
+                className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+              >
+                {label}
+              </button>
+            ))}
+          </>
+        ) : searchLoading ? (
+          <div className="flex items-center gap-2 px-3 py-4 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+            Searching OpenStreetMap…
+          </div>
+        ) : searchResults.length === 0 ? (
+          <p className="px-3 py-3 text-sm text-muted-foreground">No places found. Try another spelling or district name.</p>
+        ) : (
+          searchResults.map((p) => (
+            <button
+              key={`${p.label}-${p.lon}-${p.lat}`}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onSelect(p.label);
+                setFocusField(null);
+              }}
+              className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            >
+              {p.label}
+            </button>
+          ))
+        )}
       </motion.div>
     );
-  };
+  }
 
   return (
-    <div className="glass-panel p-6 space-y-5 h-full">
-      <div className="pb-4 border-b border-glass-border">
-        <h2 className="text-lg font-semibold text-foreground mb-0.5 tracking-tight">Route Configuration</h2>
-        <p className="text-xs text-muted-foreground">Select Indian cities and algorithm</p>
+    <div className="glass-panel h-full space-y-5 rounded-2xl p-6 sm:p-7 ring-1 ring-white/[0.06]">
+      <div className="pb-5">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/75 mb-2">Configure</p>
+        <h2 className="text-xl font-bold font-display text-foreground tracking-tight">Route</h2>
+        <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+          Search any place in India (OpenStreetMap). Pick a suggestion or keep typing — then choose your algorithm.
+        </p>
+        <div className="premium-divider mt-5" />
       </div>
 
       {/* Source */}
       <div className="space-y-1.5">
-        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Source City</label>
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Source</label>
         <div className="relative">
-          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-glow-purple" />
+          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-glow-purple pointer-events-none" />
           <input
             className="input-glass w-full pl-10"
-            placeholder="e.g. Delhi"
+            placeholder="e.g. Delhi or Kochi, Kerala"
             value={source}
             onChange={(e) => setSource(e.target.value)}
-            onFocus={() => setSourceSuggestions(true)}
-            onBlur={() => setTimeout(() => setSourceSuggestions(false), 150)}
+            onFocus={() => setFocusField({ kind: "source" })}
+            onBlur={blurClose}
+            autoComplete="off"
           />
           <AnimatePresence>
-            <CitySuggestions
-              query={source}
-              show={sourceSuggestions}
-              onSelect={(c) => { setSource(c); setSourceSuggestions(false); }}
-            />
+            <PlaceSuggestions kind="source" value={source} onSelect={setSource} />
           </AnimatePresence>
         </div>
       </div>
@@ -117,15 +209,22 @@ const RouteControls = ({ onFindRoute, isLoading }: Props) => {
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Stop {i + 1}</label>
             <div className="relative flex gap-2">
               <div className="relative flex-1">
-                <Navigation className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-glow-cyan" />
+                <Navigation className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-glow-cyan pointer-events-none" />
                 <input
                   className="input-glass w-full pl-10"
-                  placeholder={`Stop city...`}
+                  placeholder="Search a city in India…"
                   value={stop}
                   onChange={(e) => updateStop(i, e.target.value)}
+                  onFocus={() => setFocusField({ kind: "stop", index: i })}
+                  onBlur={blurClose}
+                  autoComplete="off"
                 />
+                <AnimatePresence>
+                  <PlaceSuggestions kind="stop" stopIndex={i} value={stop} onSelect={(label) => updateStop(i, label)} />
+                </AnimatePresence>
               </div>
               <button
+                type="button"
                 onClick={() => removeStop(i)}
                 className="p-3 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-all duration-200 hover:scale-105 active:scale-95"
               >
@@ -137,6 +236,7 @@ const RouteControls = ({ onFindRoute, isLoading }: Props) => {
       </AnimatePresence>
 
       <button
+        type="button"
         onClick={addStop}
         className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-glass-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-all duration-200 hover:bg-secondary/20 active:scale-[0.98]"
       >
@@ -145,23 +245,20 @@ const RouteControls = ({ onFindRoute, isLoading }: Props) => {
 
       {/* Destination */}
       <div className="space-y-1.5">
-        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Destination City</label>
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Destination</label>
         <div className="relative">
-          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-glow-blue" />
+          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-glow-blue pointer-events-none" />
           <input
             className="input-glass w-full pl-10"
-            placeholder="e.g. Mumbai"
+            placeholder="e.g. Chennai or Shillong, Meghalaya"
             value={destination}
             onChange={(e) => setDestination(e.target.value)}
-            onFocus={() => setDestSuggestions(true)}
-            onBlur={() => setTimeout(() => setDestSuggestions(false), 150)}
+            onFocus={() => setFocusField({ kind: "dest" })}
+            onBlur={blurClose}
+            autoComplete="off"
           />
           <AnimatePresence>
-            <CitySuggestions
-              query={destination}
-              show={destSuggestions}
-              onSelect={(c) => { setDestination(c); setDestSuggestions(false); }}
-            />
+            <PlaceSuggestions kind="dest" value={destination} onSelect={setDestination} />
           </AnimatePresence>
         </div>
       </div>
@@ -171,6 +268,7 @@ const RouteControls = ({ onFindRoute, isLoading }: Props) => {
         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Algorithm</label>
         <div className="relative">
           <button
+            type="button"
             onClick={() => setDropdownOpen(!dropdownOpen)}
             className="input-glass w-full flex items-center justify-between cursor-pointer group"
           >
@@ -191,12 +289,16 @@ const RouteControls = ({ onFindRoute, isLoading }: Props) => {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.96 }}
                 transition={{ duration: 0.15 }}
-                className="absolute z-50 w-full mt-2 glass-panel p-1.5 space-y-0.5"
+                className="absolute z-[100] w-full mt-2 glass-panel p-1.5 space-y-0.5"
               >
                 {algorithms.map((algo) => (
                   <button
+                    type="button"
                     key={algo.id}
-                    onClick={() => { setAlgorithm(algo.id); setDropdownOpen(false); }}
+                    onClick={() => {
+                      setAlgorithm(algo.id);
+                      setDropdownOpen(false);
+                    }}
                     className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-150 ${
                       algorithm === algo.id
                         ? "bg-primary/10 text-foreground"
@@ -222,6 +324,7 @@ const RouteControls = ({ onFindRoute, isLoading }: Props) => {
       {/* Submit */}
       <div className="pt-2">
         <button
+          type="button"
           onClick={handleSubmit}
           disabled={isLoading || !source || !destination}
           className="btn-glow w-full py-4 rounded-xl text-primary-foreground font-semibold flex items-center justify-center gap-2.5 disabled:opacity-40 disabled:cursor-not-allowed text-[15px] active:scale-[0.98] transition-transform"
